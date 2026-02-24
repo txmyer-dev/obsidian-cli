@@ -207,7 +207,10 @@ async def handle_find_notes(ctx: typer.Context, vault: Vault, args: dict[str, An
         from .main import _find_matching_files
 
         vault_path = Path(vault.path)
-        matches = _find_matching_files(vault_path, term, exact)
+        # Normalize search term to lowercase for non-exact matches,
+        # matching the CLI find command behavior (main.py line 461)
+        search_term = term if exact else term.lower()
+        matches = _find_matching_files(vault_path, search_term, exact)
 
         if not matches:
             return _create_mcp_response(

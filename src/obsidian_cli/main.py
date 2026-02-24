@@ -635,23 +635,31 @@ def new(
         if not sys.stdin.isatty():
             # Read content from stdin
             content = sys.stdin.read().strip()
-            post = frontmatter.Post(content)
+            # Use frontmatter.loads() to properly parse existing frontmatter
+            # instead of Post() which treats the entire content as body
+            post = frontmatter.loads(content)
+            has_existing_frontmatter = content.startswith("---")
 
             if vault.verbose:
                 typer.echo("Using content from stdin")
         else:
             md_file = MdUtils(file_name=str(filename), title=title, title_header_style="atx")
             post = frontmatter.Post(md_file.get_md_text())
+            has_existing_frontmatter = False
     except Exception as e:
         typer.secho(f"Error preparing file content: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
 
-    # Add frontmatter metadata
+    # Add frontmatter metadata only for fields not already present
     created_time = datetime.now()
-    post["created"] = created_time
-    post["modified"] = created_time
-    post["title"] = title
-    post[vault.ident_key] = str(uuid.uuid4())
+    if "created" not in post.metadata:
+        post["created"] = created_time
+    if "modified" not in post.metadata:
+        post["modified"] = created_time
+    if "title" not in post.metadata:
+        post["title"] = title
+    if vault.ident_key not in post.metadata:
+        post[vault.ident_key] = str(uuid.uuid4())
 
     try:
         with open(filename, "w", encoding="utf-8") as f:
